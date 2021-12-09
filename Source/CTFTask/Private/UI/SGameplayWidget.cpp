@@ -5,8 +5,9 @@
 #include "Components/Image.h"
 #include "Components/VerticalBox.h"
 #include "GameFramework/Core/TaskGameStateGameplay.h"
-#include "GameFramework/Player/TaskPlayerControllerGameplay.h"
 #include "GameFramework/Player/TaskPlayerStateGameplay.h"
+#include "GameFramework/Player/TaskPlayerControllerGameplay.h"
+#include "UI/SCKillNotifyWidget.h"
 
 
 void USGameplayWidget::OnUpdateGameScores(int32 IBlueTeam, int32 IRedTeam)
@@ -18,7 +19,7 @@ void USGameplayWidget::OnUpdateGameScores(int32 IBlueTeam, int32 IRedTeam)
 
 void USGameplayWidget::OnUpdateGameTimeLeft(float FTimeLeft)
 {
-	FString Time=FString::SanitizeFloat(FTimeLeft);
+	FString Time=FString::SanitizeFloat(FTimeLeft,0);
 	T_GameTimeLeft->SetText(FText::FromString(Time));
 }
 
@@ -43,26 +44,34 @@ void USGameplayWidget::OnUpdatePlayerHealth(float FHealthPercent)
 
 void USGameplayWidget::OnReceiveKillNotify(ATaskPlayerStateGameplay* KillerState, ATaskPlayerStateGameplay* VictimState)
 {
+	USCKillNotifyWidget*Kill=CreateWidget<USCKillNotifyWidget>(GetOwningPlayer(),KillClass);
+	if (Kill)
+	{
+		VB_KillNotify->AddChildToVerticalBox(Kill);
+		Kill->SetupWidget(KillerState,VictimState);
+	}
 }
 
 
-void USGameplayWidget::OnPlayerDeath(ATaskPlayerStateGameplay* KillerState)
+void USGameplayWidget::OnPlayerDeath(FName KillerName,TEnumAsByte<EPlayerTeam> KillerTeam)
 {
+	
 	if (PlayerControllerGameplay)
 	{
 		FString Time=FString::SanitizeFloat(PlayerControllerGameplay->FRespawnCountdown,0);
 		T_RespawnCountdown->SetText(FText::FromString(Time));
 	}
 
+	Img_CarryingFlag->SetVisibility(ESlateVisibility::Hidden);
+
+	T_KillerName->SetColorAndOpacity(KillerTeam == BlueTeam ? SCBlueTeamColor : SCRedTeamColor);
+
+	T_KillerName->SetText(FText::FromString(KillerName.ToString()));
+
+	
 	DeathScreenCanvas->SetVisibility(ESlateVisibility::Visible);
 
 	PlayerCanvas->SetVisibility(ESlateVisibility::Collapsed);
-
-	if (KillerState)
-	{
-		T_KillerName->SetText(FText::FromString(KillerState->GetPlayerName()));
-		T_KillerName->SetColorAndOpacity(KillerState->PlayerTeam == BlueTeam ? SCBlueTeamColor : SCRedTeamColor);
-	}
 
 }
 
@@ -89,32 +98,35 @@ void USGameplayWidget::OnPlayerRespawn()
 void USGameplayWidget::NativeConstruct()
 {
 	Super::NativeConstruct();
+}
 
-	ATaskGameStateGameplay* GameStateGameplay = Cast<ATaskGameStateGameplay>(GetWorld()->GetGameState());
 
-	if (GameStateGameplay)
+bool USGameplayWidget::Initialize()
+{
+	const bool Success=Super::Initialize();
+	if(Success)
 	{
-		GameStateGameplay->OnGameTimeChanged.AddDynamic(this,&USGameplayWidget::OnUpdateGameTimeLeft);
+		ATaskGameStateGameplay* GameStateGameplay = Cast<ATaskGameStateGameplay>(GetWorld()->GetGameState());
 
-		GameStateGameplay->OnTeamScoreChanged.AddDynamic(this,&USGameplayWidget::OnUpdateGameScores);
+		if (GameStateGameplay)
+		{
+			GameStateGameplay->OnGameTimeChanged.AddDynamic(this,&USGameplayWidget::OnUpdateGameTimeLeft);
+			GameStateGameplay->OnTeamScoreChanged.AddDynamic(this,&USGameplayWidget::OnUpdateGameScores);
+			GameStateGameplay->OnPlayerKill.AddDynamic(this,&USGameplayWidget::OnReceiveKillNotify);
+		}
 
-		GameStateGameplay->OnPlayerKill.AddDynamic(this,&USGameplayWidget::OnReceiveKillNotify);
+		PlayerControllerGameplay = Cast<ATaskPlayerControllerGameplay>(GetOwningPlayer());
+
+		if (PlayerControllerGameplay)
+		{
+			PlayerControllerGameplay->OnAmmoChanged.AddDynamic(this,&USGameplayWidget::OnUpdateWeaponAmmo);
+			PlayerControllerGameplay->OnHealthChanged.AddDynamic(this,&USGameplayWidget::OnUpdatePlayerHealth);
+			PlayerControllerGameplay->OnCaptureFlagStateChanged.AddDynamic(this,&USGameplayWidget::OnCaptureFlagStateChanged);
+			PlayerControllerGameplay->OnPlayerDeath.AddDynamic(this,&USGameplayWidget::OnPlayerDeath);
+			PlayerControllerGameplay->OnPlayerRespawn.AddDynamic(this,&USGameplayWidget::OnPlayerRespawn);
+			PlayerControllerGameplay->OnPlayerRespawnCountdown.AddDynamic(this,&USGameplayWidget::OnPlayerRespawnCountdown);
+		}
 	}
 
-	PlayerControllerGameplay = Cast<ATaskPlayerControllerGameplay>(GetOwningPlayer());
-
-	if (PlayerControllerGameplay)
-	{
-		PlayerControllerGameplay->OnAmmoChanged.AddDynamic(this,&USGameplayWidget::OnUpdateWeaponAmmo);
-		
-		PlayerControllerGameplay->OnHealthChanged.AddDynamic(this,&USGameplayWidget::OnUpdatePlayerHealth);
-
-		PlayerControllerGameplay->OnCaptureFlagStateChanged.AddDynamic(this,&USGameplayWidget::OnCaptureFlagStateChanged);
-
-		PlayerControllerGameplay->OnPlayerDeath.AddDynamic(this,&USGameplayWidget::OnPlayerDeath);
-
-		PlayerControllerGameplay->OnPlayerRespawn.AddDynamic(this,&USGameplayWidget::OnPlayerRespawn);
-
-		PlayerControllerGameplay->OnPlayerRespawnCountdown.AddDynamic(this,&USGameplayWidget::OnPlayerRespawnCountdown);
-	}
+	return Success;
 }

@@ -2,13 +2,16 @@
 #include "GameFramework/PlayerController.h"
 #include "SGameplayData.h"
 #include "TaskCharacter.h"
-
-
-
 #include "TaskPlayerControllerGameplay.generated.h"
 
 
 class ATaskPlayerStateGameplay;
+class ATaskPlayerStateGameplay;
+class USGameplayWidget;
+class USScoreBoardWidget;
+class USInGamePauseMenuWidget;
+class USCKillNotifyWidget;
+class USEndGameWidget;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnAmmoChanged,int32,IAmmo);
 
@@ -16,7 +19,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnHealthChanged,float,FHealthPercen
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnCaptureFlagStateChanged,bool,bHasFlag);
 
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPlayerDeath,ATaskPlayerStateGameplay*,KillerPState);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnPlayerDeath,FName,KillerName,TEnumAsByte<EPlayerTeam>,KillerTeam);
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPlayerRespawnCountdown,float,FTimeLeft);
 
@@ -51,8 +54,7 @@ public:
 
 	UPROPERTY(BlueprintAssignable)
 	FOnPlayerDeath OnPlayerDeath;
-	void SendOnPlayerDeath(ATaskPlayerStateGameplay*KillerPState);
-
+	
 	UPROPERTY(BlueprintAssignable)
 	FOnPlayerRespawn OnPlayerRespawn;
 	
@@ -62,20 +64,52 @@ public:
 	float FCurrentRespawnCountdown=0;
 
 	UPROPERTY(EditDefaultsOnly)
-	float FRespawnCountdown=10;
+	float FRespawnCountdown=5;
 
 	FTimerHandle RespawnTimeHandle;
 
 
 
+protected:
+	// <<<<<<<<<<<<< Widget Variables >>>>>>>>>>>>>>>>
+	// 
+	//Gameplay Main Widget
 	UPROPERTY()
-	class USGameplayWidget*WGameplayWidget;
-
-	UPROPERTY(EditDefaultsOnly)
-	TSubclassOf<class USGameplayWidget> WidgetClass;
+	USGameplayWidget*WGameplayWidget;
+	TSubclassOf<USGameplayWidget> GameplayWidgetClass;
 
 	UFUNCTION(BlueprintCallable)
 	void CreateGameplayWidget();
+
+	
+	//Score Board Setup
+	UPROPERTY()
+	USScoreBoardWidget*WScoreBoardWidget;
+	TSubclassOf<USScoreBoardWidget> ScoreBoardClass;
+
+	UPROPERTY()
+	USEndGameWidget*WEndGameWidget;
+	TSubclassOf<USEndGameWidget>EndGameWidgetClass;
+
+	UFUNCTION(BlueprintCallable)
+	void CreateDestroyScoreWidget();
+
+	
+	//In Game Pause Menu Setup
+	UPROPERTY()
+	USInGamePauseMenuWidget*WInGamePauseWidget;
+	TSubclassOf<USInGamePauseMenuWidget> InGamePauseClass;
+	UFUNCTION()
+	void InGamePauseMenuDeconstruct();
+	UFUNCTION(BlueprintCallable)
+    void CreateDestroyInGamePauseWidget();
+
+	
+	//Kill Notify Class
+	UPROPERTY(EditDefaultsOnly , Category="Widget")
+	TSubclassOf<USCKillNotifyWidget> KillNotifyClass;
+
+public:
 	
 	// <<<<<<<<<<<<<< Team Select And Respawn >>>>>>>>>>>>>>>>>>>>>>>>>
 	UFUNCTION(BlueprintCallable)
@@ -86,8 +120,16 @@ public:
 
 	void TeamSelectReceived(TEnumAsByte<EPlayerTeam> ReceivedTeam);
 
+	UFUNCTION()
+	void EndGameWidgetTrigger(TEnumAsByte<EPlayerTeam> WinnerTeam);
+	
+	UFUNCTION(Client,Reliable)
+	void Client_ShowEndGameWidget(uint8 WinnerTeam);
+	
 	UFUNCTION(BlueprintCallable)
 	void RequestRespawnPlayer();
+
+	void RespawnCountdown();
 
 	UFUNCTION(BlueprintImplementableEvent)
 	void ReceivedSpawnedCharacter(ACharacter* SpawnedCharacter);
@@ -95,14 +137,14 @@ public:
 	UFUNCTION(Server,Reliable)
 	void Server_RequestRespawnPlayer();
 
+	ATaskPlayerStateGameplay* ReturnPlayerStateAsGameplay();
+
 protected:
 
-
-
-	UPROPERTY(EditDefaultsOnly)
-	float RespawnTime = 3;
 	
 	virtual void BeginPlay() override;
 
+	virtual void SetupInputComponent() override;
+	
 	virtual void GetLifetimeReplicatedProps(TArray < FLifetimeProperty > & OutLifetimeProps) const override;
 };

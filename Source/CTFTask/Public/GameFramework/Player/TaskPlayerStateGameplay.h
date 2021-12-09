@@ -11,8 +11,12 @@ public:
 
 	ATaskPlayerStateGameplay();
 	
-	UPROPERTY(Replicated)
+	UPROPERTY(Replicated,BlueprintReadOnly)
 	TEnumAsByte<EPlayerTeam> PlayerTeam;
+
+	int32 IPlayerKillCount;
+
+	bool bIsAlive=true;
 
 	virtual void GetLifetimeReplicatedProps(TArray < FLifetimeProperty > & OutLifetimeProps) const override;
 };

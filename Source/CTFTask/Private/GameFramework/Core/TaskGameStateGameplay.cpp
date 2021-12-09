@@ -18,12 +18,12 @@ void ATaskGameStateGameplay::Server_AddNewPlayerToTheTeam(TEnumAsByte<EPlayerTea
 		
 	case BlueTeam:
 		IBlueTeamPlayerCount+=1;
-		BlueTeamPlayers.AddUnique(PlayerC);
+		AddPlayerControllerToTeam(BlueTeam,PlayerC);
 	break;
 
 	case RedTeam:
 		IRedTeamPlayerCount+=1;
-		RedTeamPlayers.AddUnique(PlayerC);
+		AddPlayerControllerToTeam(RedTeam,PlayerC);
 		break;
 	default:
 	break;
@@ -59,10 +59,25 @@ void ATaskGameStateGameplay::AddScoreToTheTeam(TEnumAsByte<EPlayerTeam> Team)
 void ATaskGameStateGameplay::DecreaseGameTime()
 {
 	FGameTimeLeft=FGameTimeLeft-FTimeDecreaseInterval;
+	
 	OnGameTimeChanged.Broadcast(FGameTimeLeft);
+	
 	if(FGameTimeLeft<=0)
 	{
+		GetWorld()->GetTimerManager().ClearTimer(GameTimeDecreaseHandle);
 		GameTimeDecreaseHandle.Invalidate();
+		
+		if(IBlueTeamScore>IRedTeamScore)
+		{
+			WinnerTeam=BlueTeam;
+		}
+		else if (IRedTeamScore>IBlueTeamScore)
+		{
+			WinnerTeam=RedTeam;
+		}
+
+		OnEndGame.Broadcast(WinnerTeam);
+		
 	}
 }
 
@@ -88,7 +103,18 @@ void ATaskGameStateGameplay::OnReceiveKill(ATaskPlayerStateGameplay* KillerPlaye
 }
 
 
+void ATaskGameStateGameplay::AddPlayerControllerToTeam_Implementation(EPlayerTeam Team , ATaskPlayerControllerGameplay* NewPlayer)
+{
+	switch (Team)
+	{
+		case BlueTeam:		BlueTeamPlayers.Add(NewPlayer);	break;
 
+		case RedTeam:		RedTeamPlayers.Add(NewPlayer);	break;
+		
+		default:	break;
+	}
+
+}
 
 void ATaskGameStateGameplay::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {

@@ -1,9 +1,8 @@
 ﻿#pragma once
 
+
 #include "Blueprint/UserWidget.h"
-
-#include "GameFramework/Player/TaskPlayerStateGameplay.h"
-
+#include "SGameplayData.h"
 #include "SGameplayWidget.generated.h"
 
 class UCanvasPanel;
@@ -11,6 +10,7 @@ class UTextBlock;
 class UProgressBar;
 class UImage;
 class UVerticalBox;
+class ATaskPlayerStateGameplay;
 UCLASS(BlueprintType,Blueprintable)
 class USGameplayWidget : public UUserWidget
 {
@@ -85,6 +85,9 @@ protected:
 	UPROPERTY(EditDefaultsOnly)
 	FSlateColor SCBlueTeamColor;
 
+	UPROPERTY(EditDefaultsOnly)
+	TSubclassOf<class USCKillNotifyWidget> KillClass;
+
 public:
 
 
@@ -106,17 +109,19 @@ public:
 	UFUNCTION()
 	void OnReceiveKillNotify(ATaskPlayerStateGameplay* KillerState , ATaskPlayerStateGameplay* VictimState);
 
-	
-	void OnPlayerDeath(ATaskPlayerStateGameplay* KillerState);
+	UFUNCTION()
+	void OnPlayerDeath(FName KillerName,TEnumAsByte<EPlayerTeam> KillerTeam);
 
-	
+	UFUNCTION()
 	void OnPlayerRespawnCountdown(float FTimeLeft);
 
-	
+	UFUNCTION()
 	void OnPlayerRespawn();
 
 protected:
 
 	virtual void NativeConstruct() override;
+
+	virtual bool Initialize() override;
 	
 };

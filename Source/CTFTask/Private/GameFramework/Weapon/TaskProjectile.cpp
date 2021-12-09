@@ -2,7 +2,11 @@
 
 #include "GameFramework/Weapon/TaskProjectile.h"
 #include "GameFramework/ProjectileMovementComponent.h"
+#include "Components/StaticMeshComponent.h"
+#include "Particles/ParticleSystem.h"
+#include "Sound/SoundBase.h"
 #include "Components/SphereComponent.h"
+#include "Kismet/GameplayStatics.h"
 
 ACTFTaskProjectile::ACTFTaskProjectile() 
 {
@@ -10,14 +14,18 @@ ACTFTaskProjectile::ACTFTaskProjectile()
 	CollisionComp = CreateDefaultSubobject<USphereComponent>(TEXT("SphereComp"));
 	CollisionComp->InitSphereRadius(5.0f);
 	CollisionComp->BodyInstance.SetCollisionProfileName("Projectile");
-	CollisionComp->OnComponentHit.AddDynamic(this, &ACTFTaskProjectile::OnHit);		// set up a notification for when this component hits something blocking
-
+	//CollisionComp->OnComponentHit.AddDynamic(this, &ACTFTaskProjectile::OnHit);		// set up a notification for when this component hits something blocking
+	CollisionComp->OnComponentBeginOverlap.AddDynamic(this,&ACTFTaskProjectile::OnBeginOverlap);
 	// Players can't walk on it
 	CollisionComp->SetWalkableSlopeOverride(FWalkableSlopeOverride(WalkableSlope_Unwalkable, 0.f));
 	CollisionComp->CanCharacterStepUpOn = ECB_No;
 
 	// Set as root component
 	RootComponent = CollisionComp;
+
+	ProjectileMesh=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("ProjectileMesh"));
+	ProjectileMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	ProjectileMesh->SetupAttachment(RootComponent);
 
 	// Use a ProjectileMovementComponent to govern this projectile's movement
 	ProjectileMovement = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("ProjectileComp"));
@@ -40,4 +48,34 @@ void ACTFTaskProjectile::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor,
 
 		Destroy();
 	}
+}
+
+void ACTFTaskProjectile::OnBeginOverlap(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor,UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+{
+	if (OtherActor)
+	{
+		OtherActor->ReceiveAnyDamage(Damage,nullptr,GetInstigatorController(),GetOwner());
+	}
+
+	Server_ImpactEffects(SweepResult.Location);
+
+	Destroy();
+}
+
+void ACTFTaskProjectile::Multi_ImpactEffects_Implementation(FVector ImpactLocation)
+{
+	if (ImpactParticle)
+	{
+		UGameplayStatics::SpawnEmitterAtLocation(GetWorld(),ImpactParticle,ImpactLocation);
+	}
+	if (ImpactSound)
+	{
+		UGameplayStatics::SpawnSoundAtLocation(GetWorld(),ImpactSound,ImpactLocation);
+	}
+
+}
+
+void ACTFTaskProjectile::Server_ImpactEffects_Implementation(FVector ImpactLocation)
+{
+	Multi_ImpactEffects(ImpactLocation);
 }

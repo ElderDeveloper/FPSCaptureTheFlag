@@ -11,6 +11,23 @@ enum EPlayerTeam
 	RedTeam		UMETA(DisplayName ="RedTeam")
 };
 
+USTRUCT(BlueprintType)
+struct FPlayersStruct
+{
+	GENERATED_BODY()
+public:
+	UPROPERTY(BlueprintReadWrite)
+	FName PlayerName;
+
+	UPROPERTY(BlueprintReadWrite)
+	bool PlayerReady;
+	FPlayersStruct(FName PN , bool PR)
+	{
+		PlayerName=PN;
+		PlayerReady=PR;
+	}
+	FPlayersStruct(){}
+};
 
 
 UCLASS()

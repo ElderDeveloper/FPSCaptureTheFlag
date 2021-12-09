@@ -4,10 +4,9 @@
 #include "GameFramework/Core/TaskGameModeGameplay.h"
 
 #include "GeneratedCodeHelpers.h"
-#include "GameFramework/Core/TaskHUD.h"
 #include "GameFramework/Player/TaskPlayerControllerGameplay.h"
 #include "GameFramework/Core/TaskGameStateGameplay.h"
-#include "World/TaskTeamPlayerStart.h"
+#include "GameFramework/CaptureTheFlag/TaskTeamPlayerStart.h"
 #include "GameFramework/Player/TaskPlayerStateGameplay.h"
 #include "Kismet/KismetMathLibrary.h"
 #include "Kismet/GameplayStatics.h"
@@ -15,8 +14,9 @@
 
 ATaskGameModeGameplay::ATaskGameModeGameplay() 
 {
-	HUDClass = ATaskHUD::StaticClass();
+
 }
+
 
 void ATaskGameModeGameplay::ReceiveTeamSelect(ATaskPlayerControllerGameplay* PlayerController)
 {
@@ -58,10 +58,15 @@ void ATaskGameModeGameplay::ReceiveSpawnPlayer(ATaskPlayerControllerGameplay * P
 		{
 			FActorSpawnParameters Parameters;
 			Parameters.SpawnCollisionHandlingOverride=ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
-			ACharacter* SpawnedCharacter=GetWorld()->SpawnActor<ACharacter>(PlayerGameplayClass,PlayerSpawnTransform.GetLocation(),PlayerSpawnTransform.GetRotation().Rotator(),Parameters);
+			ACTFTaskCharacter* SpawnedCharacter=GetWorld()->SpawnActor<ACTFTaskCharacter>(PlayerGameplayClass,PlayerSpawnTransform.GetLocation(),PlayerSpawnTransform.GetRotation().Rotator(),Parameters);
 			if(SpawnedCharacter)
 			{
+				if (PlayerController->GetPawn())
+				{
+					PlayerController->GetPawn()->Destroy();
+				}
 				PlayerController->Possess(SpawnedCharacter);
+				SpawnedCharacter->PlayerTeam=Team;
 			}
 		}
 	}
@@ -106,7 +111,7 @@ void ATaskGameModeGameplay::BeginPlay()
 }
 
 
-void ATaskGameModeGameplay::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+void ATaskGameModeGameplay::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const 
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
